@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Push-to-Talk Radio</title>
+</head>
+<body>
+    <h1>Push-to-Talk Radio</h1>
+    <button id="talkButton">Tap to Talk</button>
+    <audio id="remoteAudio" autoplay></audio>
+
+    <script>
+        const ws = new WebSocket('ws://localhost:3000');
+        const talkButton = document.getElementById('talkButton');
+        const remoteAudio = document.getElementById('remoteAudio');
+        let mediaStream;
+        let mediaRecorder;
+
+        // Handle audio capture and streaming
+        async function startTalking() {
+            mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(mediaStream);
+
+            mediaRecorder.ondataavailable = (event) => {
+                if (event.data.size > 0) {
+                    ws.send(event.data);
+                }
+            };
+
+            mediaRecorder.start(100); // capture audio in 100ms chunks
+        }
+
+        function stopTalking() {
+            if (mediaRecorder) {
+                mediaRecorder.stop();
+                mediaStream.getTracks().forEach(track => track.stop());
+            }
+        }
+
+        // Button event listeners
+        talkButton.addEventListener('mousedown', startTalking);
+        talkButton.addEventListener('mouseup', stopTalking);
+
+        // Handle incoming audio
+        ws.onmessage = (event) => {
+            const audioBlob = new Blob([event.data], { type: 'audio/webm' });
+            const audioUrl = URL.createObjectURL(audioBlob);
+            remoteAudio.src = audioUrl;
+        };
+    </script>
+</body>
+</html>
